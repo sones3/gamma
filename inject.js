@@ -104,15 +104,15 @@
     return (Date.now() - rowDate.getTime()) <= 6 * 60 * 1000;
   }
 
-  window.gammaReloadGrid = function() {
+  function gammaReloadGrid() {
     if (window.$ && window.$.fn && window.$.fn.trigger) {
       try {
         $("#list_globalTaskTransactionGrid_cs").trigger("reloadGrid");
       } catch(e) {}
     }
-  };
+  }
 
-  window.gammaClaimFast = function() {
+  function gammaClaimFast() {
     if (!window.assignOrClaimTaskCS) return;
 
     for (let i = 1; i <= 50; i++) {
@@ -134,8 +134,18 @@
       } catch(e) {}
     }
     return false;
-  };
+  }
 
-  console.log('🤖 Gamma Auto-Bot functions loaded');
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+
+    if (event.data.type === 'GAMMA_RELOAD_GRID') {
+      gammaReloadGrid();
+    } else if (event.data.type === 'GAMMA_CLAIM_FAST') {
+      gammaClaimFast();
+    }
+  });
+
+  console.log('🤖 Gamma Auto-Bot functions loaded & Listening');
 
 })();

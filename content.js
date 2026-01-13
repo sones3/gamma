@@ -63,16 +63,9 @@ function applyTurboMode() {
   script.remove();
 }
 
-function executeInPage(code) {
-  const script = document.createElement('script');
-  script.textContent = code;
-  (document.head || document.documentElement).appendChild(script);
-  script.remove();
-}
-
 function startAutoBotLoop() {
   if (autoBotInterval) clearInterval(autoBotInterval);
-  console.log('🤖 Auto-Bot Loop Started (Grid Refresh Mode)');
+  console.log('🤖 Auto-Bot Loop Started (Grid Refresh Mode via postMessage)');
   createToast("🤖 Auto-Bot Started");
 
   autoBotInterval = setInterval(() => {
@@ -81,10 +74,10 @@ function startAutoBotLoop() {
       return;
     }
 
-    executeInPage('if(window.gammaClaimFast) window.gammaClaimFast();');
+    window.postMessage({ type: 'GAMMA_CLAIM_FAST' }, '*');
 
     setTimeout(() => {
-      executeInPage('if(window.gammaReloadGrid) window.gammaReloadGrid();');
+      window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
     }, 100);
 
   }, 2000); 
@@ -314,8 +307,7 @@ function rotateBase64(base64, degrees) {
 }
 
 function extract18Digits(text) {
-  const cleaned = text.replace(/\s+/g, '');
-  const match = cleaned.match(/\d{18}/);
+  const match = text.replace(/\s+/g, '').match(/\d{18}/);
   return match ? match[0] : null;
 }
 
