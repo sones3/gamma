@@ -314,7 +314,8 @@ function rotateBase64(base64, degrees) {
 }
 
 function extract18Digits(text) {
-  const match = text.replace(/\s+/g, '').match(/\d{18}/);
+  const cleaned = text.replace(/\s+/g, '');
+  const match = cleaned.match(/\d{18}/);
   return match ? match[0] : null;
 }
 
@@ -344,9 +345,6 @@ async function performOCR() {
         workerPath: chrome.runtime.getURL('lib/worker.min.js'),
         langPath: 'https://tessdata.projectnaptha.com/4.0.0',
         corePath: chrome.runtime.getURL('lib/tesseract-core.wasm.js')
-      });
-      await ocrWorker.setParameters({
-        tessedit_char_whitelist: '0123456789'
       });
     } catch (e) {
       console.error('OCR Init Error:', e);
