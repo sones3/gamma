@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gamma All-in-One",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "The ultimate task sniper, OCR helper and turbo claimer for SNOC.",
   "permissions": [
     "storage",
@@ -29,7 +29,8 @@
       "resources": [
         "lib/worker.min.js",
         "lib/tesseract-core.wasm.js",
-        "lib/tesseract.min.js"
+        "lib/tesseract.min.js",
+        "inject.js"
       ],
       "matches": ["*://newsnoc/*"]
     }

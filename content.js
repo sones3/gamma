@@ -4,10 +4,9 @@ let config = {
   approveKey: '+',
   addressKey: 'Shift',
   ocrKey: 'Ctrl+Shift+K',
-  turboMode: false
+  autoBotMode: false 
 };
 
-let lastClaimTime = 0;
 let ocrWorker = null;
 
 chrome.storage.local.get({
@@ -16,136 +15,67 @@ chrome.storage.local.get({
   approveKey: '+',
   addressKey: 'Shift',
   ocrKey: 'Ctrl+Shift+K',
-  turboMode: false,
-  lastClaimTime: 0
+  autoBotMode: false
 }, (items) => {
   config = items;
-  lastClaimTime = items.lastClaimTime || 0;
   console.log('✅ Gamma Extension Loaded:', config);
-  applyTurboMode();
-  applyMultiViewMode();
+  
+  injectMultiViewScript();
+  
+  if (config.autoBotMode) {
+    applyTurboMode();
+    initAutoBotLoop();
+  }
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'UPDATE_CONFIG') {
+    const oldMode = config.autoBotMode;
     config = request.config;
     console.log('🔄 Config updated:', config);
-    applyTurboMode();
+    
+    if (config.autoBotMode && !oldMode) {
+      applyTurboMode();
+      initAutoBotLoop();
+    } else if (!config.autoBotMode && oldMode) {
+      console.log('🛑 Auto-Bot Stopped.');
+    }
   }
 });
 
-function applyTurboMode() {
-  if (config.turboMode) {
-    const script = document.createElement('script');
-    script.textContent = `
-      if (window.bootbox) {
-        window.bootbox.alert = function() { console.log('🚀 Turbo Mode: Alert blocked'); };
-        window.bootbox.confirm = function(msg, cb) { if(cb) cb(true); }; 
-      }
-      console.log('🔥 Turbo Mode ACTIVATED: Alerts & Confirms neutralized.');
-    `;
-    (document.head || document.documentElement).appendChild(script);
-    script.remove();
-  }
+function injectMultiViewScript() {
+  const s = document.createElement('script');
+  s.src = chrome.runtime.getURL('inject.js');
+  s.onload = function() { this.remove(); };
+  (document.head || document.documentElement).appendChild(s);
+  console.log('💉 Multi-View Script Injected.');
 }
 
-function applyMultiViewMode() {
+function applyTurboMode() {
   const script = document.createElement('script');
   script.textContent = `
-    (function() {
-      function safeOverride() {
-        try {
-          if (typeof window.showInitialActivationDocument === 'function' && !window.__gammaMultiViewInjected) {
-            window.__gammaMultiViewInjected = true;
-            const original = window.showInitialActivationDocument;
-            
-            window.showInitialActivationDocument = function () {
-              documentViewCount=1;
-              $("#showImageDivId").css('display','none');
-              $("#documentsDivId").css('display','');
-              $("#documentsMenuDivId").css('display','');
-              
-              var activation_data = response.interface;
-              var document_data = null;
-              
-              var data_value = typeof findActivationTab === 'function' ? findActivationTab() : null;
-              
-              if(data_value == "re_processed_data" && activation_data.reprocess_data)
-                document_data = activation_data.reprocess_data;
-              else if(data_value == "approval_data" && activation_data.approval_data)
-                document_data = activation_data.approval_data;
-              else
-                document_data = activation_data.order_data;
-              
-              if (!document_data) return;
-
-              var document_details = null;
-              if(document_data.document_details) {
-                document_details = Array.isArray(document_data.document_details) ? 
-                  document_data.document_details[0] : document_data.document_details;
-              }
-
-              if(document_details) {
-                $("#idProofRdBtn").prop('checked', true);
-                $("#idProofFrontRdBtn").prop('checked', true);
-                $('#idProofFandBdiv').css("display","");
-                $('#controls').css("display","");
-                $('#cafPreviewDiv').css("display","none");
-                $('#img-preview').css("display","");
-                
-                if (typeof enableDisableListOfDocuments === 'function') {
-                  enableDisableListOfDocuments(document_details);
-                }
-                
-                if(document_details.id_front) {
-                  const img = document.getElementById('documentImageId');
-                  if (img && !document.getElementById('documentImageId2')) {
-                    const clone = img.cloneNode(true);
-                    clone.id = 'documentImageId2';
-                    clone.style.marginTop = '10px';
-                    
-                    const clone2 = img.cloneNode(true);
-                    clone2.id = 'documentImageId3';
-                    clone2.style.marginTop = '10px';
-      
-                    img.parentNode.insertBefore(clone2, img.nextSibling);
-                    img.parentNode.insertBefore(clone, img.nextSibling);
-                  }
-
-                  var file_id = document_details.id_front;
-                  var file_id2 = document_details.signature;
-                  var file_id3 = document_details.id_back;
-                  
-                  if (typeof getFileDataByFileId === 'function') {
-                    var fileObj = getFileDataByFileId(file_id);
-                    var fileObj2 = getFileDataByFileId(file_id2);
-                    var fileObj3 = getFileDataByFileId(file_id3);
- 
-                    if(fileObj?.file) $('#documentImageId').attr('src', 'data:image/png;base64,'+fileObj.file);
-                    if(fileObj3?.file) $('#documentImageId2').attr('src', 'data:image/png;base64,'+fileObj3.file);
-                    if(fileObj2?.file) $('#documentImageId3').attr('src', 'data:image/png;base64,'+fileObj2.file);
-                    
-                    $("#idProofFrontRdBtn").attr('data_file_id', file_id);
-                  }
-                } else {
-                  $('#documentImageId').attr('src',"");
-                  if(bootbox) bootbox.alert("ID Front Not Available");
-                }
-              }
-            };
-            console.log('🖼️ Gamma Multi-View: Override successful');
-          } else {
-            setTimeout(safeOverride, 500);
-          }
-        } catch (err) {
-          console.error('Gamma Override Error:', err);
-        }
-      }
-      safeOverride();
-    })();
+    if (window.bootbox) {
+      window.bootbox.alert = function() { console.log('🚀 Auto-Bot: Alert blocked'); };
+      window.bootbox.confirm = function(msg, cb) { if(cb) cb(true); }; 
+    }
+    console.log('🔥 Auto-Bot ACTIVATED: Alerts & Confirms neutralized.');
   `;
   (document.head || document.documentElement).appendChild(script);
   script.remove();
+}
+
+function initAutoBotLoop() {
+  console.log('🤖 Auto-Bot: Starting loop in 2s...');
+  setTimeout(async () => {
+    if (!config.autoBotMode) return;
+    
+    await handleClaim();
+    
+    console.log('♻️ Reloading page...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 3000);
+  }, 2000);
 }
 
 const COMMUNE_MAPPING = {
@@ -211,33 +141,28 @@ async function waitAndClick(selector, timeout = 3000) {
   while (Date.now() - start < timeout) {
     const el = document.querySelector(selector);
     
-    if (el && (el.offsetParent !== null || config.turboMode)) { 
+    if (el && (el.offsetParent !== null || config.autoBotMode)) { 
       el.click();
       return true;
     }
-    await delay(config.turboMode ? 20 : 50);
+    await delay(config.autoBotMode ? 20 : 50);
   }
   return false;
 }
 
-let isProcessingQueue = false;
-
 async function processTaskQueue(tasks) {
-  if (isProcessingQueue) return;
-  isProcessingQueue = true;
-
   console.log(`⚡ Processing ${tasks.length} tasks...`);
 
   for (const task of tasks) {
     try {
       task.children[0].click();
-      await delay(config.turboMode ? 20 : 100);
+      await delay(config.autoBotMode ? 20 : 100);
 
       const claimBtn = document.querySelector("#claimTask");
       if (claimBtn) claimBtn.click();
       else console.warn("Claim button not found");
 
-      if (!config.turboMode) {
+      if (!config.autoBotMode) {
         await waitAndClick("body > div.bootbox.modal.fade.bootbox-confirm.in > div > div > div.modal-footer > button.btn.btn-primary");
         await waitAndClick("body > div.bootbox.modal.fade.bootbox-alert.in > div > div > div.modal-footer > button");
         await waitAndClick("body > div.bootbox.modal.fade.bootbox-alert.in > div > div > div.modal-footer > button");
@@ -245,32 +170,17 @@ async function processTaskQueue(tasks) {
         await delay(50); 
       }
       
-      await delay(config.turboMode ? 50 : 200); 
+      await delay(config.autoBotMode ? 50 : 200); 
     } catch (err) {
       console.error("Error processing task:", err);
     }
   }
   
-  isProcessingQueue = false;
-  
-  lastClaimTime = Date.now();
-  chrome.storage.local.set({ lastClaimTime: lastClaimTime });
-  console.log("⚡ Queue finished. Cooldown started (10m).");
-  createToast("✅ Claim finished. Cooldown: 10 mins.");
+  console.log("⚡ Queue finished.");
+  createToast("✅ Claim finished.");
 }
 
-function handleClaim() {
-  const now = Date.now();
-  const timeSinceLastClaim = now - lastClaimTime;
-  const cooldown = 10 * 60 * 1000;
-
-  if (timeSinceLastClaim < cooldown) {
-    const remaining = Math.ceil((cooldown - timeSinceLastClaim) / 1000 / 60);
-    console.warn(`⏳ Rate Limited. Wait ${remaining} minutes.`);
-    createToast(`⏳ Wait ${remaining} min before next claim!`);
-    return;
-  }
-
+async function handleClaim() {
   const taskList = document.getElementsByClassName("ui-widget-content jqgrow ui-row-ltr");
   const validTasks = [];
 
@@ -285,10 +195,10 @@ function handleClaim() {
   const tasksToProcess = validTasks.slice(0, limit);
 
   if (tasksToProcess.length > 0) {
-    processTaskQueue(tasksToProcess);
+    await processTaskQueue(tasksToProcess);
   } else {
     console.log("⚠️ No recent tasks found ( < 4 mins ).");
-    createToast("⚠️ No recent tasks (< 4 min) found.");
+    createToast("⚠️ No recent tasks found.");
   }
 }
 
@@ -297,7 +207,7 @@ function handleApprove() {
   if (approveBtn) {
     approveBtn.click();
     
-    if (!config.turboMode) {
+    if (!config.autoBotMode) {
       setTimeout(() => {
         const okApprove = document.querySelector('body > div.bootbox.modal.fade.bootbox-confirm.in > div > div > div.modal-footer > button.btn.btn-primary');
         if (okApprove) okApprove.click();
@@ -473,7 +383,17 @@ document.addEventListener('keydown', (event) => {
 
   if (isShortcutPressed(event, config.claimKey)) {
     event.preventDefault();
-    handleClaim();
+    if (config.autoBotMode) {
+      config.autoBotMode = false;
+      chrome.storage.local.set({ autoBotMode: false });
+      createToast("🛑 Auto-Bot Disabled.");
+    } else {
+      config.autoBotMode = true;
+      chrome.storage.local.set({ autoBotMode: true });
+      applyTurboMode();
+      initAutoBotLoop();
+      createToast("🤖 Auto-Bot Enabled! Looping...");
+    }
   }
 
   if (isShortcutPressed(event, config.approveKey)) {
