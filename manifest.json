@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Gamma All-in-One",
+  "version": "2.0.0",
+  "description": "The ultimate task sniper and helper for SNOC.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://newsnoc/uiSNOC/*",
+    "*://newsnoc/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Gamma Settings"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://newsnoc/uiSNOC/main/service*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

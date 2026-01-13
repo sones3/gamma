@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Gamma Settings 🚀</h2>
+    
+    <div class="section">
+      <h3>⚡ Task Sniper (Claim)</h3>
+      <div class="input-group">
+        <label>Max Tasks (Limit)</label>
+        <input type="number" id="maxClaim" value="30" min="1" max="100">
+      </div>
+      <div class="input-group">
+        <label>Shortcut</label>
+        <input type="text" id="claimKey" value="s" class="key-input" placeholder="Press keys..." readonly>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>✅ Quick Approve</h3>
+      <div class="input-group">
+        <label>Shortcut</label>
+        <input type="text" id="approveKey" value="+" class="key-input" placeholder="Press keys..." readonly>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>📍 Address Helper</h3>
+      <div class="input-group">
+        <label>Shortcut</label>
+        <input type="text" id="addressKey" value="Shift" class="key-input" placeholder="Press keys..." readonly>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button id="saveBtn">Save Configuration 💾</button>
+      <div id="status"></div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
