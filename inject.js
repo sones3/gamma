@@ -3,10 +3,7 @@
     try {
       if (typeof window.showInitialActivationDocument === 'function' && !window.__gammaMultiViewInjected) {
         window.__gammaMultiViewInjected = true;
-        const original = window.showInitialActivationDocument;
         
-        console.log('🖼️ Gamma Multi-View: Overriding showInitialActivationDocument...');
-
         window.showInitialActivationDocument = function () {
           documentViewCount=1;
           $("#showImageDivId").css('display','none');
@@ -15,15 +12,11 @@
           
           var activation_data = response.interface;
           var document_data = null;
-          
           var data_value = typeof findActivationTab === 'function' ? findActivationTab() : null;
           
-          if(data_value == "re_processed_data" && activation_data.reprocess_data)
-            document_data = activation_data.reprocess_data;
-          else if(data_value == "approval_data" && activation_data.approval_data)
-            document_data = activation_data.approval_data;
-          else
-            document_data = activation_data.order_data;
+          if(data_value == "re_processed_data" && activation_data.reprocess_data) document_data = activation_data.reprocess_data;
+          else if(data_value == "approval_data" && activation_data.approval_data) document_data = activation_data.approval_data;
+          else document_data = activation_data.order_data;
           
           if (!document_data) return;
 
@@ -41,9 +34,7 @@
             $('#cafPreviewDiv').css("display","none");
             $('#img-preview').css("display","");
             
-            if (typeof enableDisableListOfDocuments === 'function') {
-              enableDisableListOfDocuments(document_details);
-            }
+            if (typeof enableDisableListOfDocuments === 'function') enableDisableListOfDocuments(document_details);
             
             if(document_details.id_front) {
               const img = document.getElementById('documentImageId');
@@ -51,12 +42,12 @@
                 const clone = img.cloneNode(true);
                 clone.id = 'documentImageId2';
                 clone.style.marginTop = '10px';
-                clone.style.border = '2px solid #4b8bf4'; 
+                clone.style.border = '2px solid #4b8bf4';
                 
                 const clone2 = img.cloneNode(true);
                 clone2.id = 'documentImageId3';
                 clone2.style.marginTop = '10px';
-                clone2.style.border = '2px solid #e05c4b'; 
+                clone2.style.border = '2px solid #e05c4b';
   
                 img.parentNode.insertBefore(clone2, img.nextSibling);
                 img.parentNode.insertBefore(clone, img.nextSibling);
@@ -76,16 +67,12 @@
                 if(fileObj3?.file) {
                    $('#documentImageId2').attr('src', 'data:image/png;base64,'+fileObj3.file);
                    $('#documentImageId2').show();
-                } else {
-                   $('#documentImageId2').hide();
-                }
+                } else { $('#documentImageId2').hide(); }
 
                 if(fileObj2?.file) {
                    $('#documentImageId3').attr('src', 'data:image/png;base64,'+fileObj2.file);
                    $('#documentImageId3').show();
-                } else {
-                   $('#documentImageId3').hide();
-                }
+                } else { $('#documentImageId3').hide(); }
                 
                 $("#idProofFrontRdBtn").attr('data_file_id', file_id);
               }
@@ -97,9 +84,7 @@
         };
         console.log('🖼️ Gamma Multi-View: Override successful');
       } else {
-        if (!window.__gammaMultiViewInjected) {
-           setTimeout(safeOverride, 500);
-        }
+        if (!window.__gammaMultiViewInjected) setTimeout(safeOverride, 500);
       }
     } catch (err) {
       console.error('Gamma Override Error:', err);
@@ -107,6 +92,50 @@
   }
   
   safeOverride();
-  
   window.addEventListener('load', safeOverride);
+
+  function isFresh(dateStr) {
+    if (!dateStr) return false;
+    const [d, t] = dateStr.trim().split(" ");
+    if (!d || !t) return false;
+    const [day, month, year] = d.split("-").map(Number);
+    const [hour, minute] = t.split(":").map(Number);
+    const rowDate = new Date(year, month - 1, day, hour, minute);
+    return (Date.now() - rowDate.getTime()) <= 6 * 60 * 1000;
+  }
+
+  window.gammaReloadGrid = function() {
+    if (window.$ && window.$.fn && window.$.fn.trigger) {
+      try {
+        $("#list_globalTaskTransactionGrid_cs").trigger("reloadGrid");
+      } catch(e) {}
+    }
+  };
+
+  window.gammaClaimFast = function() {
+    if (!window.assignOrClaimTaskCS) return;
+
+    for (let i = 1; i <= 50; i++) {
+      const row = document.getElementById(String(i));
+      if (!row) continue;
+
+      try {
+        const id = Number(row.cells[1]?.innerText);
+        const time = row.cells[13]?.innerText;
+
+        if (id && isFresh(time)) {
+          console.log(`⚡ Claiming Task ${id} (${time})...`);
+          
+          window.selectedtransIds = [id];
+          window.assignOrClaimTaskCS({ transaction_ids: [id] }, "claim");
+          
+          return true;
+        }
+      } catch(e) {}
+    }
+    return false;
+  };
+
+  console.log('🤖 Gamma Auto-Bot functions loaded');
+
 })();

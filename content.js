@@ -1,19 +1,20 @@
 let config = {
   maxClaim: 30,
-  claimKey: 'S',
-  approveKey: '+',
-  addressKey: 'Shift',
+  claimKey: 'Ctrl+Shift+U',
+  approveKey: 'Ctrl+I',
+  addressKey: 'Ctrl+B',
   ocrKey: 'Ctrl+Shift+K',
   autoBotMode: false 
 };
 
 let ocrWorker = null;
+let autoBotInterval = null;
 
 chrome.storage.local.get({
   maxClaim: 30,
-  claimKey: 'S',
-  approveKey: '+',
-  addressKey: 'Shift',
+  claimKey: 'Ctrl+Shift+U',
+  approveKey: 'Ctrl+I',
+  addressKey: 'Ctrl+B',
   ocrKey: 'Ctrl+Shift+K',
   autoBotMode: false
 }, (items) => {
@@ -24,7 +25,7 @@ chrome.storage.local.get({
   
   if (config.autoBotMode) {
     applyTurboMode();
-    initAutoBotLoop();
+    startAutoBotLoop();
   }
 });
 
@@ -36,9 +37,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     if (config.autoBotMode && !oldMode) {
       applyTurboMode();
-      initAutoBotLoop();
+      startAutoBotLoop();
     } else if (!config.autoBotMode && oldMode) {
-      console.log('🛑 Auto-Bot Stopped.');
+      stopAutoBotLoop();
     }
   }
 });
@@ -48,7 +49,6 @@ function injectMultiViewScript() {
   s.src = chrome.runtime.getURL('inject.js');
   s.onload = function() { this.remove(); };
   (document.head || document.documentElement).appendChild(s);
-  console.log('💉 Multi-View Script Injected.');
 }
 
 function applyTurboMode() {
@@ -58,24 +58,45 @@ function applyTurboMode() {
       window.bootbox.alert = function() { console.log('🚀 Auto-Bot: Alert blocked'); };
       window.bootbox.confirm = function(msg, cb) { if(cb) cb(true); }; 
     }
-    console.log('🔥 Auto-Bot ACTIVATED: Alerts & Confirms neutralized.');
   `;
   (document.head || document.documentElement).appendChild(script);
   script.remove();
 }
 
-function initAutoBotLoop() {
-  console.log('🤖 Auto-Bot: Starting loop in 2s...');
-  setTimeout(async () => {
-    if (!config.autoBotMode) return;
-    
-    await handleClaim();
-    
-    console.log('♻️ Reloading page...');
+function executeInPage(code) {
+  const script = document.createElement('script');
+  script.textContent = code;
+  (document.head || document.documentElement).appendChild(script);
+  script.remove();
+}
+
+function startAutoBotLoop() {
+  if (autoBotInterval) clearInterval(autoBotInterval);
+  console.log('🤖 Auto-Bot Loop Started (Grid Refresh Mode)');
+  createToast("🤖 Auto-Bot Started");
+
+  autoBotInterval = setInterval(() => {
+    if (!config.autoBotMode) {
+      stopAutoBotLoop();
+      return;
+    }
+
+    executeInPage('if(window.gammaClaimFast) window.gammaClaimFast();');
+
     setTimeout(() => {
-      window.location.reload();
-    }, 3000);
-  }, 2000);
+      executeInPage('if(window.gammaReloadGrid) window.gammaReloadGrid();');
+    }, 100);
+
+  }, 2000); 
+}
+
+function stopAutoBotLoop() {
+  if (autoBotInterval) {
+    clearInterval(autoBotInterval);
+    autoBotInterval = null;
+  }
+  console.log('🛑 Auto-Bot Loop Stopped');
+  createToast("🛑 Auto-Bot Stopped");
 }
 
 const COMMUNE_MAPPING = {
@@ -177,7 +198,7 @@ async function processTaskQueue(tasks) {
   }
   
   console.log("⚡ Queue finished.");
-  createToast("✅ Claim finished.");
+  createToast("✅ Queue finished.");
 }
 
 async function handleClaim() {
@@ -269,9 +290,23 @@ function rotateBase64(base64, degrees) {
         canvas.height = img.height;
       }
       const ctx = canvas.getContext('2d');
+      
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.rotate(degrees * Math.PI / 180);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+        const val = gray > 140 ? 255 : 0; 
+        data[i] = val;
+        data[i + 1] = val;
+        data[i + 2] = val;
+      }
+      ctx.putImageData(imageData, 0, 0);
+
       resolve(canvas.toDataURL('image/png'));
     };
     img.src = base64;
@@ -309,6 +344,9 @@ async function performOCR() {
         workerPath: chrome.runtime.getURL('lib/worker.min.js'),
         langPath: 'https://tessdata.projectnaptha.com/4.0.0',
         corePath: chrome.runtime.getURL('lib/tesseract-core.wasm.js')
+      });
+      await ocrWorker.setParameters({
+        tessedit_char_whitelist: '0123456789'
       });
     } catch (e) {
       console.error('OCR Init Error:', e);
@@ -391,7 +429,7 @@ document.addEventListener('keydown', (event) => {
       config.autoBotMode = true;
       chrome.storage.local.set({ autoBotMode: true });
       applyTurboMode();
-      initAutoBotLoop();
+      startAutoBotLoop();
       createToast("🤖 Auto-Bot Enabled! Looping...");
     }
   }

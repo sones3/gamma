@@ -8,14 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
     turboMode: document.getElementById('turboMode')
   };
   const saveBtn = document.getElementById('saveBtn');
-  const downloadLogsBtn = document.getElementById('downloadLogsBtn');
   const status = document.getElementById('status');
 
   chrome.storage.local.get({
     maxClaim: 30,
-    claimKey: 's',
-    approveKey: '+',
-    addressKey: 'Shift',
+    claimKey: 'Ctrl+Shift+U',
+    approveKey: 'Ctrl+I',
+    addressKey: 'Ctrl+B',
     ocrKey: 'Ctrl+Shift+K',
     turboMode: false
   }, (items) => {
@@ -86,40 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
           chrome.tabs.sendMessage(tabs[0].id, {type: 'UPDATE_CONFIG', config: config});
         }
       });
-    });
-  });
-
-  downloadLogsBtn.addEventListener('click', () => {
-    chrome.storage.local.get({ gammaLogs: [] }, (result) => {
-      const logs = result.gammaLogs;
-      if (!logs || logs.length === 0) {
-        status.textContent = '⚠️ No logs found.';
-        status.style.color = '#fab387';
-        return;
-      }
-
-      const today = new Date().toDateString();
-      const todayLogs = logs.filter(log => new Date(log.timestamp).toDateString() === today);
-
-      if (todayLogs.length === 0) {
-        status.textContent = '⚠️ No logs for today.';
-        status.style.color = '#fab387';
-        return;
-      }
-
-      const logText = todayLogs.map(log => log.text).join('\n');
-      const blob = new Blob([logText], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      
-      const dateStr = new Date().toISOString().split('T')[0];
-      a.href = url;
-      a.download = `${dateStr}.log`;
-      a.click();
-      
-      URL.revokeObjectURL(url);
-      status.textContent = 'Logs Downloaded! 📥';
-      status.style.color = '#a6e3a1';
     });
   });
 });
