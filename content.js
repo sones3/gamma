@@ -59,8 +59,8 @@ function applyTurboMode() {
 
 function startAutoBotLoop() {
   if (autoBotInterval) clearInterval(autoBotInterval);
-  console.log('🤖 Auto-Bot Loop Started (Grid Refresh Mode via postMessage)');
-  createToast("🤖 Auto-Bot Started");
+  console.log('🚀 Auto-Bot Loop Started (FAST MODE)');
+  createToast("🚀 Auto-Bot FAST");
 
   applyTurboMode();
 
@@ -71,12 +71,12 @@ function startAutoBotLoop() {
     }
 
     window.postMessage({ type: 'GAMMA_CLAIM_FAST' }, '*');
-
+    
     setTimeout(() => {
-      window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
-    }, 100);
+       window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
+    }, 20);
 
-  }, 2000); 
+  }, 50); 
 }
 
 function stopAutoBotLoop() {
@@ -302,24 +302,55 @@ function rotateBase64(base64, degrees) {
   });
 }
 
+function cleanAndExtractID(lineText) {
+  if (!lineText || lineText.length < 18) return null;
+
+  let corrected = lineText
+    .replace(/O/g, '0')
+    .replace(/o/g, '0')
+    .replace(/D/g, '0')
+    .replace(/I/g, '1')
+    .replace(/l/g, '1')
+    .replace(/Z/g, '2')
+    .replace(/S/g, '5')
+    .replace(/B/g, '8')
+    .replace(/G/g, '6')
+    .replace(/\s+/g, ''); 
+
+  corrected = corrected.replace(/\D/g, '');
+
+  const match = corrected.match(/\d{18}/);
+  return match ? match[0] : null;
+}
+
 function extract18DigitsFromLines(tesseractResult) {
   if (!tesseractResult || !tesseractResult.data) return null;
 
+  console.group('🔍 OCR Debug - Lines Analysis');
+  
+  let lines = [];
   if (tesseractResult.data.lines && tesseractResult.data.lines.length > 0) {
-    for (const line of tesseractResult.data.lines) {
-      const cleanLine = line.text.replace(/\s/g, ''); 
-      const match = cleanLine.match(/\d{18}/);
-      if (match) return match[0];
+    lines = tesseractResult.data.lines.map(l => l.text);
+  } else {
+    lines = tesseractResult.data.text.split('\n');
+  }
+
+  for (const line of lines) {
+    const rawLine = line.trim();
+    if (!rawLine) continue;
+
+    console.log(`RAW: "${rawLine}"`);
+    
+    const id = cleanAndExtractID(rawLine);
+    if (id) {
+      console.log(`✅ MATCH FOUND: ${id}`);
+      console.groupEnd();
+      return id;
     }
   }
-
-  const rawLines = tesseractResult.data.text.split('\n');
-  for (const rawLine of rawLines) {
-    const cleanLine = rawLine.replace(/\s/g, '');
-    const match = cleanLine.match(/\d{18}/);
-    if (match) return match[0];
-  }
-
+  
+  console.log('❌ No 18-digit sequence found in any line.');
+  console.groupEnd();
   return null;
 }
 
