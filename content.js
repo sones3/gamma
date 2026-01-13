@@ -8,7 +8,8 @@ let config = {
 };
 
 let ocrWorker = null;
-let autoBotInterval = null;
+let claimTimer = null;
+let reloadTimer = null;
 
 chrome.storage.local.get({
   maxClaim: 30,
@@ -58,31 +59,38 @@ function applyTurboMode() {
 }
 
 function startAutoBotLoop() {
-  if (autoBotInterval) clearInterval(autoBotInterval);
-  console.log('🚀 Auto-Bot Loop Started (FAST MODE)');
-  createToast("🚀 Auto-Bot FAST");
+  stopAutoBotLoop(); 
+  
+  console.log('🚀 Auto-Bot HYPER SPEED Started (10ms Claim / 20ms Reload)');
+  createToast("🚀 Auto-Bot HYPER SPEED");
 
   applyTurboMode();
 
-  autoBotInterval = setInterval(() => {
+  claimTimer = setInterval(() => {
     if (!config.autoBotMode) {
       stopAutoBotLoop();
       return;
     }
-
     window.postMessage({ type: 'GAMMA_CLAIM_FAST' }, '*');
-    
-    setTimeout(() => {
-       window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
-    }, 20);
+  }, 10);
 
-  }, 50); 
+  reloadTimer = setInterval(() => {
+    if (!config.autoBotMode) {
+      stopAutoBotLoop();
+      return;
+    }
+    window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
+  }, 20);
 }
 
 function stopAutoBotLoop() {
-  if (autoBotInterval) {
-    clearInterval(autoBotInterval);
-    autoBotInterval = null;
+  if (claimTimer) {
+    clearInterval(claimTimer);
+    claimTimer = null;
+  }
+  if (reloadTimer) {
+    clearInterval(reloadTimer);
+    reloadTimer = null;
   }
   console.log('🛑 Auto-Bot Loop Stopped');
   createToast("🛑 Auto-Bot Stopped");
