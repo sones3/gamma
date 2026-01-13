@@ -249,8 +249,13 @@ function rotateBase64(base64, degrees) {
   });
 }
 
+function extract18Digits(text) {
+  const match = text.replace(/\s+/g, '').match(/\d{18}/);
+  return match ? match[0] : null;
+}
+
 async function performOCR() {
-  createToast('👁️ Scanning ID...');
+  createToast('👁️ Scanning ID (Searching for 18 digits)...');
   
   const targetIds = ['documentImageId', 'documentImageId2', 'documentImageId1', 'documentImageId3'];
   let foundImg = null;
@@ -284,7 +289,7 @@ async function performOCR() {
   }
 
   const rotations = [0, 90, 180, 270];
-  let finalText = "";
+  let foundNumber = null;
 
   for (const deg of rotations) {
     createToast(`↻ OCR Attempt (${deg}°)...`);
@@ -292,22 +297,30 @@ async function performOCR() {
     
     try {
       const result = await ocrWorker.recognize(rotatedImg);
-      const text = result.data.text.trim();
+      const text = result.data.text;
       
-      if (text && text.length > 5) { 
-        finalText = text;
-        break; 
+      const number = extract18Digits(text);
+      if (number) {
+        foundNumber = number;
+        break;
       }
     } catch (e) {
       console.error(e);
     }
   }
 
-  if (finalText) {
-    await navigator.clipboard.writeText(finalText);
-    createToast('✅ Text Copied to Clipboard!');
+  if (foundNumber) {
+    const idField = document.getElementById('idNo');
+    if (idField) {
+      idField.value = foundNumber;
+      createToast(`✅ ID Found & Filled: ${foundNumber}`);
+      await navigator.clipboard.writeText(foundNumber);
+    } else {
+      await navigator.clipboard.writeText(foundNumber);
+      createToast(`✅ Copied: ${foundNumber} (Field #idNo not found)`);
+    }
   } else {
-    createToast('❌ OCR Failed (Too blurry?)');
+    createToast('❌ Failed: No 18-digit ID found.');
   }
 }
 
