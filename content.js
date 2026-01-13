@@ -284,42 +284,15 @@ function rotateBase64(base64, degrees) {
       ctx.rotate(degrees * Math.PI / 180);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
-        const val = gray > 140 ? 255 : 0; 
-        data[i] = val;
-        data[i + 1] = val;
-        data[i + 2] = val;
-      }
-      ctx.putImageData(imageData, 0, 0);
-
       resolve(canvas.toDataURL('image/png'));
     };
     img.src = base64;
   });
 }
 
-function cleanAndExtractID(lineText) {
-  if (!lineText || lineText.length < 18) return null;
-
-  let corrected = lineText
-    .replace(/O/g, '0')
-    .replace(/o/g, '0')
-    .replace(/D/g, '0')
-    .replace(/I/g, '1')
-    .replace(/l/g, '1')
-    .replace(/Z/g, '2')
-    .replace(/S/g, '5')
-    .replace(/B/g, '8')
-    .replace(/G/g, '6')
-    .replace(/\s+/g, ''); 
-
-  corrected = corrected.replace(/\D/g, '');
-
-  const match = corrected.match(/\d{18}/);
+function extract18DigitsStrict(text) {
+  const cleanSpaces = text.replace(/\s+/g, '');
+  const match = cleanSpaces.match(/\d{18}/);
   return match ? match[0] : null;
 }
 
@@ -341,7 +314,7 @@ function extract18DigitsFromLines(tesseractResult) {
 
     console.log(`RAW: "${rawLine}"`);
     
-    const id = cleanAndExtractID(rawLine);
+    const id = extract18DigitsStrict(rawLine);
     if (id) {
       console.log(`✅ MATCH FOUND: ${id}`);
       console.groupEnd();
@@ -349,13 +322,13 @@ function extract18DigitsFromLines(tesseractResult) {
     }
   }
   
-  console.log('❌ No 18-digit sequence found in any line.');
+  console.log('❌ No 18-digit sequence found (Strict Mode).');
   console.groupEnd();
   return null;
 }
 
 async function performOCR() {
-  createToast('👁️ Scanning ID (Searching for 18 digits on same line)...');
+  createToast('👁️ Scanning ID (Strict 18 digits)...');
   
   const targetIds = ['documentImageId', 'documentImageId2', 'documentImageId1', 'documentImageId3'];
   let foundImg = null;
@@ -420,7 +393,7 @@ async function performOCR() {
       createToast(`✅ Copied: ${foundNumber} (Field #idNo not found)`);
     }
   } else {
-    createToast('❌ Failed: No 18-digit ID found on a single line.');
+    createToast('❌ Failed: No 18-digit ID found.');
   }
 }
 
