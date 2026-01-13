@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Gamma All-in-One",
-  "version": "2.0.0",
-  "description": "The ultimate task sniper and helper for SNOC.",
+  "version": "3.0.0",
+  "description": "The ultimate task sniper, OCR helper and turbo claimer for SNOC.",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "https://newsnoc/uiSNOC/*",
@@ -19,8 +20,18 @@
   "content_scripts": [
     {
       "matches": ["*://newsnoc/uiSNOC/main/service*"],
-      "js": ["content.js"],
+      "js": ["lib/tesseract.min.js", "content.js"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/worker.min.js",
+        "lib/tesseract-core.wasm.js",
+        "lib/tesseract.min.js"
+      ],
+      "matches": ["*://newsnoc/*"]
     }
   ]
 }

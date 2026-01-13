@@ -2,25 +2,48 @@ let config = {
   maxClaim: 30,
   claimKey: 'S',
   approveKey: '+',
-  addressKey: 'Shift'
+  addressKey: 'Shift',
+  ocrKey: 'Ctrl+Shift+K',
+  turboMode: false
 };
+
+let ocrWorker = null;
 
 chrome.storage.local.get({
   maxClaim: 30,
   claimKey: 'S',
   approveKey: '+',
-  addressKey: 'Shift'
+  addressKey: 'Shift',
+  ocrKey: 'Ctrl+Shift+K',
+  turboMode: false
 }, (items) => {
   config = items;
   console.log('✅ Gamma Extension Loaded:', config);
+  applyTurboMode();
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'UPDATE_CONFIG') {
     config = request.config;
     console.log('🔄 Config updated:', config);
+    applyTurboMode();
   }
 });
+
+function applyTurboMode() {
+  if (config.turboMode) {
+    const script = document.createElement('script');
+    script.textContent = `
+      if (window.bootbox) {
+        window.bootbox.alert = function() { console.log('🚀 Turbo Mode: Alert blocked'); };
+        window.bootbox.confirm = function(msg, cb) { if(cb) cb(true); }; 
+      }
+      console.log('🔥 Turbo Mode ACTIVATED: Alerts & Confirms neutralized.');
+    `;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+  }
+}
 
 const COMMUNE_MAPPING = {
   "Les Eucaliptus/ Cherarba": "Les Eucaliptus",
@@ -84,11 +107,12 @@ async function waitAndClick(selector, timeout = 3000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     const el = document.querySelector(selector);
-    if (el && el.offsetParent !== null) { 
+    
+    if (el && (el.offsetParent !== null || config.turboMode)) { 
       el.click();
       return true;
     }
-    await delay(50);
+    await delay(config.turboMode ? 20 : 50);
   }
   return false;
 }
@@ -104,19 +128,21 @@ async function processTaskQueue(tasks) {
   for (const task of tasks) {
     try {
       task.children[0].click();
-      await delay(100);
+      await delay(config.turboMode ? 20 : 100);
 
       const claimBtn = document.querySelector("#claimTask");
       if (claimBtn) claimBtn.click();
       else console.warn("Claim button not found");
 
-      await waitAndClick("body > div.bootbox.modal.fade.bootbox-confirm.in > div > div > div.modal-footer > button.btn.btn-primary");
+      if (!config.turboMode) {
+        await waitAndClick("body > div.bootbox.modal.fade.bootbox-confirm.in > div > div > div.modal-footer > button.btn.btn-primary");
+        await waitAndClick("body > div.bootbox.modal.fade.bootbox-alert.in > div > div > div.modal-footer > button");
+        await waitAndClick("body > div.bootbox.modal.fade.bootbox-alert.in > div > div > div.modal-footer > button");
+      } else {
+        await delay(50); 
+      }
       
-      await waitAndClick("body > div.bootbox.modal.fade.bootbox-alert.in > div > div > div.modal-footer > button");
-      
-      await waitAndClick("body > div.bootbox.modal.fade.bootbox-alert.in > div > div > div.modal-footer > button");
-      
-      await delay(200); 
+      await delay(config.turboMode ? 50 : 200); 
     } catch (err) {
       console.error("Error processing task:", err);
     }
@@ -151,10 +177,13 @@ function handleApprove() {
   const approveBtn = document.querySelector('#submitEditPrepaidID');
   if (approveBtn) {
     approveBtn.click();
-    setTimeout(() => {
-      const okApprove = document.querySelector('body > div.bootbox.modal.fade.bootbox-confirm.in > div > div > div.modal-footer > button.btn.btn-primary');
-      if (okApprove) okApprove.click();
-    }, 200);
+    
+    if (!config.turboMode) {
+      setTimeout(() => {
+        const okApprove = document.querySelector('body > div.bootbox.modal.fade.bootbox-confirm.in > div > div > div.modal-footer > button.btn.btn-primary');
+        if (okApprove) okApprove.click();
+      }, 200);
+    }
   } else {
     console.warn("Approve button not found.");
   }
@@ -182,6 +211,103 @@ function handleAddress() {
 
     addressField.value = finalValue;
     console.log(`📍 Address updated: ${finalValue}`);
+  }
+}
+
+function createToast(text) {
+  let toast = document.getElementById('gamma-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'gamma-toast';
+    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#222;color:#fff;padding:10px 20px;border-radius:8px;z-index:999999;font-family:sans-serif;opacity:0;transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+function rotateBase64(base64, degrees) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      if (degrees === 90 || degrees === 270) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(degrees * Math.PI / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.src = base64;
+  });
+}
+
+async function performOCR() {
+  createToast('👁️ Scanning ID...');
+  
+  const targetIds = ['documentImageId', 'documentImageId2', 'documentImageId1', 'documentImageId3'];
+  let foundImg = null;
+
+  for (const id of targetIds) {
+    const el = document.getElementById(id);
+    if (el && el.src && el.src.startsWith('data:image')) {
+      foundImg = el.src;
+      break;
+    }
+  }
+
+  if (!foundImg) {
+    createToast('❌ No ID image found!');
+    return;
+  }
+
+  if (!ocrWorker) {
+    createToast('⚙️ Loading Engine...');
+    try {
+      ocrWorker = await Tesseract.createWorker('fra', 1, {
+        workerPath: chrome.runtime.getURL('lib/worker.min.js'),
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+        corePath: chrome.runtime.getURL('lib/tesseract-core.wasm.js')
+      });
+    } catch (e) {
+      console.error('OCR Init Error:', e);
+      createToast('❌ OCR Engine Failed');
+      return;
+    }
+  }
+
+  const rotations = [0, 90, 180, 270];
+  let finalText = "";
+
+  for (const deg of rotations) {
+    createToast(`↻ OCR Attempt (${deg}°)...`);
+    const rotatedImg = deg === 0 ? foundImg : await rotateBase64(foundImg, deg);
+    
+    try {
+      const result = await ocrWorker.recognize(rotatedImg);
+      const text = result.data.text.trim();
+      
+      if (text && text.length > 5) { 
+        finalText = text;
+        break; 
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (finalText) {
+    await navigator.clipboard.writeText(finalText);
+    createToast('✅ Text Copied to Clipboard!');
+  } else {
+    createToast('❌ OCR Failed (Too blurry?)');
   }
 }
 
@@ -226,5 +352,10 @@ document.addEventListener('keydown', (event) => {
   if (isShortcutPressed(event, config.addressKey)) {
     event.preventDefault();
     handleAddress();
+  }
+
+  if (isShortcutPressed(event, config.ocrKey)) {
+    event.preventDefault();
+    performOCR();
   }
 });

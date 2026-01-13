@@ -3,7 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     maxClaim: document.getElementById('maxClaim'),
     claimKey: document.getElementById('claimKey'),
     approveKey: document.getElementById('approveKey'),
-    addressKey: document.getElementById('addressKey')
+    addressKey: document.getElementById('addressKey'),
+    ocrKey: document.getElementById('ocrKey'),
+    turboMode: document.getElementById('turboMode')
   };
   const saveBtn = document.getElementById('saveBtn');
   const status = document.getElementById('status');
@@ -12,15 +14,19 @@ document.addEventListener('DOMContentLoaded', () => {
     maxClaim: 30,
     claimKey: 's',
     approveKey: '+',
-    addressKey: 'Shift'
+    addressKey: 'Shift',
+    ocrKey: 'Ctrl+Shift+K',
+    turboMode: false
   }, (items) => {
     inputs.maxClaim.value = items.maxClaim;
     inputs.claimKey.value = items.claimKey;
     inputs.approveKey.value = items.approveKey;
     inputs.addressKey.value = items.addressKey;
+    inputs.ocrKey.value = items.ocrKey;
+    inputs.turboMode.checked = items.turboMode;
   });
 
-  ['claimKey', 'approveKey', 'addressKey'].forEach(id => {
+  ['claimKey', 'approveKey', 'addressKey', 'ocrKey'].forEach(id => {
     const el = document.getElementById(id);
     
     el.addEventListener('keydown', (e) => {
@@ -63,7 +69,9 @@ document.addEventListener('DOMContentLoaded', () => {
       maxClaim: parseInt(inputs.maxClaim.value, 10),
       claimKey: inputs.claimKey.value,
       approveKey: inputs.approveKey.value,
-      addressKey: inputs.addressKey.value
+      addressKey: inputs.addressKey.value,
+      ocrKey: inputs.ocrKey.value,
+      turboMode: inputs.turboMode.checked
     };
 
     chrome.storage.local.set(config, () => {
