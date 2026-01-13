@@ -8,8 +8,7 @@ let config = {
 };
 
 let ocrWorker = null;
-let claimTimer = null;
-let reloadTimer = null;
+let hyperWorker = null;
 
 chrome.storage.local.get({
   maxClaim: 30,
@@ -59,38 +58,56 @@ function applyTurboMode() {
 }
 
 function startAutoBotLoop() {
-  stopAutoBotLoop(); 
+  stopAutoBotLoop();
   
-  console.log('🚀 Auto-Bot HYPER SPEED Started (10ms Claim / 20ms Reload)');
-  createToast("🚀 Auto-Bot HYPER SPEED");
+  console.log('🚀 Auto-Bot NUCLEAR SPEED Started (1ms Claim / 2ms Reload via Worker)');
+  createToast("🚀 Auto-Bot NUCLEAR");
 
   applyTurboMode();
 
-  claimTimer = setInterval(() => {
-    if (!config.autoBotMode) {
-      stopAutoBotLoop();
-      return;
-    }
-    window.postMessage({ type: 'GAMMA_CLAIM_FAST' }, '*');
-  }, 10);
+  const blob = new Blob([`
+    let claimInterval;
+    let reloadInterval;
 
-  reloadTimer = setInterval(() => {
-    if (!config.autoBotMode) {
-      stopAutoBotLoop();
-      return;
+    self.onmessage = function(e) {
+      if (e.data === 'start') {
+        if (claimInterval) clearInterval(claimInterval);
+        if (reloadInterval) clearInterval(reloadInterval);
+
+        claimInterval = setInterval(() => {
+          self.postMessage('claim');
+        }, 1);
+
+        reloadInterval = setInterval(() => {
+          self.postMessage('reload');
+        }, 2);
+      } else if (e.data === 'stop') {
+        clearInterval(claimInterval);
+        clearInterval(reloadInterval);
+      }
+    };
+  `], { type: 'application/javascript' });
+
+  hyperWorker = new Worker(URL.createObjectURL(blob));
+
+  hyperWorker.onmessage = function(e) {
+    if (!config.autoBotMode) return;
+
+    if (e.data === 'claim') {
+      window.postMessage({ type: 'GAMMA_CLAIM_FAST' }, '*');
+    } else if (e.data === 'reload') {
+      window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
     }
-    window.postMessage({ type: 'GAMMA_RELOAD_GRID' }, '*');
-  }, 20);
+  };
+
+  hyperWorker.postMessage('start');
 }
 
 function stopAutoBotLoop() {
-  if (claimTimer) {
-    clearInterval(claimTimer);
-    claimTimer = null;
-  }
-  if (reloadTimer) {
-    clearInterval(reloadTimer);
-    reloadTimer = null;
+  if (hyperWorker) {
+    hyperWorker.postMessage('stop');
+    hyperWorker.terminate();
+    hyperWorker = null;
   }
   console.log('🛑 Auto-Bot Loop Stopped');
   createToast("🛑 Auto-Bot Stopped");
