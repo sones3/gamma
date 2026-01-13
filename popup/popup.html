@@ -18,9 +18,12 @@
         <label>Shortcut</label>
         <input type="text" id="claimKey" value="s" class="key-input" placeholder="Press keys..." readonly>
       </div>
-      <div class="input-group" style="margin-top: 8px; justify-content: start; gap: 8px;">
-        <input type="checkbox" id="turboMode" style="width: auto;">
-        <label for="turboMode" style="cursor: pointer; color: #fab387;">🔥 Turbo Mode (No Alerts)</label>
+      <div class="checkbox-group">
+        <input type="checkbox" id="turboMode">
+        <label for="turboMode" class="warn-label">🔥 Turbo Mode (No Alerts)</label>
+      </div>
+      <div style="font-size: 11px; color: #a6e3a1; margin-top: 5px;">
+        ℹ️ Cooldown: 10 mins between claims.
       </div>
     </div>
 
@@ -41,10 +44,13 @@
     </div>
 
     <div class="section">
-      <h3>👁️ Identity OCR</h3>
+      <h3>👁️ Identity & OCR</h3>
       <div class="input-group">
         <label>Shortcut</label>
         <input type="text" id="ocrKey" value="Ctrl+Shift+K" class="key-input" placeholder="Press keys..." readonly>
+      </div>
+      <div style="font-size: 11px; color: #fab387; margin-top: 5px;">
+        ℹ️ Multi-View Mode is always active.
       </div>
     </div>
 

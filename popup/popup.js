@@ -71,7 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
       approveKey: inputs.approveKey.value,
       addressKey: inputs.addressKey.value,
       ocrKey: inputs.ocrKey.value,
-      turboMode: inputs.turboMode.checked
+      turboMode: inputs.turboMode.checked,
+      multiViewMode: true 
     };
 
     chrome.storage.local.set(config, () => {

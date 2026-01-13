@@ -7,6 +7,7 @@ let config = {
   turboMode: false
 };
 
+let lastClaimTime = 0;
 let ocrWorker = null;
 
 chrome.storage.local.get({
@@ -15,11 +16,14 @@ chrome.storage.local.get({
   approveKey: '+',
   addressKey: 'Shift',
   ocrKey: 'Ctrl+Shift+K',
-  turboMode: false
+  turboMode: false,
+  lastClaimTime: 0
 }, (items) => {
   config = items;
+  lastClaimTime = items.lastClaimTime || 0;
   console.log('✅ Gamma Extension Loaded:', config);
   applyTurboMode();
+  applyMultiViewMode();
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -43,6 +47,105 @@ function applyTurboMode() {
     (document.head || document.documentElement).appendChild(script);
     script.remove();
   }
+}
+
+function applyMultiViewMode() {
+  const script = document.createElement('script');
+  script.textContent = `
+    (function() {
+      function safeOverride() {
+        try {
+          if (typeof window.showInitialActivationDocument === 'function' && !window.__gammaMultiViewInjected) {
+            window.__gammaMultiViewInjected = true;
+            const original = window.showInitialActivationDocument;
+            
+            window.showInitialActivationDocument = function () {
+              documentViewCount=1;
+              $("#showImageDivId").css('display','none');
+              $("#documentsDivId").css('display','');
+              $("#documentsMenuDivId").css('display','');
+              
+              var activation_data = response.interface;
+              var document_data = null;
+              
+              var data_value = typeof findActivationTab === 'function' ? findActivationTab() : null;
+              
+              if(data_value == "re_processed_data" && activation_data.reprocess_data)
+                document_data = activation_data.reprocess_data;
+              else if(data_value == "approval_data" && activation_data.approval_data)
+                document_data = activation_data.approval_data;
+              else
+                document_data = activation_data.order_data;
+              
+              if (!document_data) return;
+
+              var document_details = null;
+              if(document_data.document_details) {
+                document_details = Array.isArray(document_data.document_details) ? 
+                  document_data.document_details[0] : document_data.document_details;
+              }
+
+              if(document_details) {
+                $("#idProofRdBtn").prop('checked', true);
+                $("#idProofFrontRdBtn").prop('checked', true);
+                $('#idProofFandBdiv').css("display","");
+                $('#controls').css("display","");
+                $('#cafPreviewDiv').css("display","none");
+                $('#img-preview').css("display","");
+                
+                if (typeof enableDisableListOfDocuments === 'function') {
+                  enableDisableListOfDocuments(document_details);
+                }
+                
+                if(document_details.id_front) {
+                  const img = document.getElementById('documentImageId');
+                  if (img && !document.getElementById('documentImageId2')) {
+                    const clone = img.cloneNode(true);
+                    clone.id = 'documentImageId2';
+                    clone.style.marginTop = '10px';
+                    
+                    const clone2 = img.cloneNode(true);
+                    clone2.id = 'documentImageId3';
+                    clone2.style.marginTop = '10px';
+      
+                    img.parentNode.insertBefore(clone2, img.nextSibling);
+                    img.parentNode.insertBefore(clone, img.nextSibling);
+                  }
+
+                  var file_id = document_details.id_front;
+                  var file_id2 = document_details.signature;
+                  var file_id3 = document_details.id_back;
+                  
+                  if (typeof getFileDataByFileId === 'function') {
+                    var fileObj = getFileDataByFileId(file_id);
+                    var fileObj2 = getFileDataByFileId(file_id2);
+                    var fileObj3 = getFileDataByFileId(file_id3);
+ 
+                    if(fileObj?.file) $('#documentImageId').attr('src', 'data:image/png;base64,'+fileObj.file);
+                    if(fileObj3?.file) $('#documentImageId2').attr('src', 'data:image/png;base64,'+fileObj3.file);
+                    if(fileObj2?.file) $('#documentImageId3').attr('src', 'data:image/png;base64,'+fileObj2.file);
+                    
+                    $("#idProofFrontRdBtn").attr('data_file_id', file_id);
+                  }
+                } else {
+                  $('#documentImageId').attr('src',"");
+                  if(bootbox) bootbox.alert("ID Front Not Available");
+                }
+              }
+            };
+            console.log('🖼️ Gamma Multi-View: Override successful');
+          } else {
+            setTimeout(safeOverride, 500);
+          }
+        } catch (err) {
+          console.error('Gamma Override Error:', err);
+        }
+      }
+      safeOverride();
+    })();
+  `;
+  (document.head || document.documentElement).appendChild(script);
+  script.remove();
 }
 
 const COMMUNE_MAPPING = {
@@ -149,10 +252,25 @@ async function processTaskQueue(tasks) {
   }
   
   isProcessingQueue = false;
-  console.log("⚡ Queue finished.");
+  
+  lastClaimTime = Date.now();
+  chrome.storage.local.set({ lastClaimTime: lastClaimTime });
+  console.log("⚡ Queue finished. Cooldown started (10m).");
+  createToast("✅ Claim finished. Cooldown: 10 mins.");
 }
 
 function handleClaim() {
+  const now = Date.now();
+  const timeSinceLastClaim = now - lastClaimTime;
+  const cooldown = 10 * 60 * 1000;
+
+  if (timeSinceLastClaim < cooldown) {
+    const remaining = Math.ceil((cooldown - timeSinceLastClaim) / 1000 / 60);
+    console.warn(`⏳ Rate Limited. Wait ${remaining} minutes.`);
+    createToast(`⏳ Wait ${remaining} min before next claim!`);
+    return;
+  }
+
   const taskList = document.getElementsByClassName("ui-widget-content jqgrow ui-row-ltr");
   const validTasks = [];
 
@@ -170,6 +288,7 @@ function handleClaim() {
     processTaskQueue(tasksToProcess);
   } else {
     console.log("⚠️ No recent tasks found ( < 4 mins ).");
+    createToast("⚠️ No recent tasks (< 4 min) found.");
   }
 }
 
