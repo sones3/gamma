@@ -136,6 +136,14 @@
     return false;
   }
 
+  function activateTurboMode() {
+    if (window.bootbox) {
+      window.bootbox.alert = function() { console.log('🚀 Auto-Bot: Alert blocked'); };
+      window.bootbox.confirm = function(msg, cb) { if(cb) cb(true); };
+      console.log('🔥 Auto-Bot: Alerts neutralized (CSP-Safe).');
+    }
+  }
+
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
 
@@ -143,6 +151,8 @@
       gammaReloadGrid();
     } else if (event.data.type === 'GAMMA_CLAIM_FAST') {
       gammaClaimFast();
+    } else if (event.data.type === 'GAMMA_TURBO_MODE') {
+      activateTurboMode();
     }
   });
 

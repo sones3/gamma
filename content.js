@@ -23,10 +23,12 @@ chrome.storage.local.get({
   
   injectMultiViewScript();
   
-  if (config.autoBotMode) {
-    applyTurboMode();
-    startAutoBotLoop();
-  }
+  setTimeout(() => {
+    if (config.autoBotMode) {
+      applyTurboMode();
+      startAutoBotLoop();
+    }
+  }, 500);
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -52,21 +54,15 @@ function injectMultiViewScript() {
 }
 
 function applyTurboMode() {
-  const script = document.createElement('script');
-  script.textContent = `
-    if (window.bootbox) {
-      window.bootbox.alert = function() { console.log('🚀 Auto-Bot: Alert blocked'); };
-      window.bootbox.confirm = function(msg, cb) { if(cb) cb(true); }; 
-    }
-  `;
-  (document.head || document.documentElement).appendChild(script);
-  script.remove();
+  window.postMessage({ type: 'GAMMA_TURBO_MODE' }, '*');
 }
 
 function startAutoBotLoop() {
   if (autoBotInterval) clearInterval(autoBotInterval);
   console.log('🤖 Auto-Bot Loop Started (Grid Refresh Mode via postMessage)');
   createToast("🤖 Auto-Bot Started");
+
+  applyTurboMode();
 
   autoBotInterval = setInterval(() => {
     if (!config.autoBotMode) {
@@ -306,13 +302,29 @@ function rotateBase64(base64, degrees) {
   });
 }
 
-function extract18Digits(text) {
-  const match = text.replace(/\s+/g, '').match(/\d{18}/);
-  return match ? match[0] : null;
+function extract18DigitsFromLines(tesseractResult) {
+  if (!tesseractResult || !tesseractResult.data) return null;
+
+  if (tesseractResult.data.lines && tesseractResult.data.lines.length > 0) {
+    for (const line of tesseractResult.data.lines) {
+      const cleanLine = line.text.replace(/\s/g, ''); 
+      const match = cleanLine.match(/\d{18}/);
+      if (match) return match[0];
+    }
+  }
+
+  const rawLines = tesseractResult.data.text.split('\n');
+  for (const rawLine of rawLines) {
+    const cleanLine = rawLine.replace(/\s/g, '');
+    const match = cleanLine.match(/\d{18}/);
+    if (match) return match[0];
+  }
+
+  return null;
 }
 
 async function performOCR() {
-  createToast('👁️ Scanning ID (Searching for 18 digits)...');
+  createToast('👁️ Scanning ID (Searching for 18 digits on same line)...');
   
   const targetIds = ['documentImageId', 'documentImageId2', 'documentImageId1', 'documentImageId3'];
   let foundImg = null;
@@ -354,9 +366,9 @@ async function performOCR() {
     
     try {
       const result = await ocrWorker.recognize(rotatedImg);
-      const text = result.data.text;
       
-      const number = extract18Digits(text);
+      const number = extract18DigitsFromLines(result);
+      
       if (number) {
         foundNumber = number;
         break;
@@ -377,7 +389,7 @@ async function performOCR() {
       createToast(`✅ Copied: ${foundNumber} (Field #idNo not found)`);
     }
   } else {
-    createToast('❌ Failed: No 18-digit ID found.');
+    createToast('❌ Failed: No 18-digit ID found on a single line.');
   }
 }
 
